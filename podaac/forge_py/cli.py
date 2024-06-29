@@ -54,32 +54,38 @@ def main(args=None):
 
     safe_log_args(logger, args)
 
-    config_file = args.config
-    local_file = args.granule
+    if args.granule_config:
+        with open(args.granule_config) as config_f:
+            read_config = json.load(config_f)
+            is360 = read_config.get('is360', False)
+            thinning_fac = read_config.get('footprint', {}).get('thinning_fac', 100)
+            alpha = read_config.get('footprint', {}).get('alpha', 0.05)
+            strategy = read_config.get('footprint', {}).get('strategy', None)
+            simplify = read_config.get('footprint', {}).get('simplify', 0.1)
+            longitude_var = read_config.get('lonVar')
+            latitude_var = read_config.get('latVar')
+        
+    if args.granule:
+        with xr.open_dataset(args.granule, decode_times=False) as ds:
+            lon_data = ds[longitude_var]
+            lat_data = ds[latitude_var]
 
-    with open(config_file) as config_f:
-        read_config = json.load(config_f)
 
-    longitude_var = read_config.get('lonVar')
-    latitude_var = read_config.get('latVar')
-    is360 = read_config.get('is360', False)
-
-    thinning_fac = read_config.get('footprint', {}).get('thinning_fac', 100)
-    alpha = read_config.get('footprint', {}).get('alpha', 0.05)
-    strategy = read_config.get('footprint', {}).get('strategy', None)
-    simplify = read_config.get('footprint', {}).get('simplify', 0.1)
+    if args.spatial:
+        with open(args.spatial) as f:
+            vals = [list(map(float, line.split())) for line in f]
+            lat_data = list(map(list.pop, vals))
+            lon_data = list(map(list.pop, vals))
 
     # Generate footprint
-    with xr.open_dataset(local_file, decode_times=False) as ds:
-        lon_data = ds[longitude_var]
-        lat_data = ds[latitude_var]
-        wkt_representation = forge.generate_footprint(lon_data, lat_data, thinning_fac=thinning_fac, alpha=alpha, is360=is360, simplify=simplify, strategy=strategy)
+    wkt_representation, geojson = forge.generate_footprint(lon_data, lat_data, thinning_fac=thinning_fac, alpha=alpha, is360=is360, simplify=simplify, strategy=strategy)
+
+    print("\nWKT:\n", wkt_representation)
+    print("\nGeoJSON:\n", geojson)
 
     if args.output_file:
         with open(args.output_file, "w") as json_file:
-            json.dump(wkt_representation, json_file)
-
-    print(wkt_representation)
+            json_file.write(geojson)
 
     logger.info(f"Finished forge-py: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')}")  # pylint: disable=W1203
 

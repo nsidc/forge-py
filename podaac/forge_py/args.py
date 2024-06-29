@@ -25,11 +25,13 @@ def create_parser():
     """Create a argparse parser for the backfill cli"""
 
     parser = ArgumentParser()
-    parser.add_argument("-c", "--config", required=True)
-    parser.add_argument("-g", "--granule", required=True)
+    parser.add_argument("-c", "--config")
+    parser.add_argument("-g", "--granule")
+    parser.add_argument("-gc", "--granule_config")
     parser.add_argument("-o", "--output_file")
-    parser.add_argument("--log-file")
-    parser.add_argument("--log-level")
+    parser.add_argument("--log_file")
+    parser.add_argument("--log_level")
+    parser.add_argument("-s", "--spatial")
 
     return parser
 

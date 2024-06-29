@@ -3,7 +3,7 @@ import numpy as np
 import alphashape
 from shapely.geometry import Polygon
 from shapely.wkt import dumps
-
+from shapely import to_geojson 
 
 def fit_footprint(lon, lat, thinning_fac=100, alpha=0.05):
     """
@@ -140,5 +140,6 @@ def generate_footprint(lon, lat, thinning_fac=30, alpha=0.035, is360=False, simp
     if not alpha_shape.is_valid:
         alpha_shape = alpha_shape.buffer(0)
 
+    geojson = to_geojson(alpha_shape)
     wkt_alphashape = dumps(alpha_shape)
-    return wkt_alphashape
+    return wkt_alphashape, geojson
