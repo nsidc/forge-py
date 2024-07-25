@@ -3,7 +3,7 @@ import numpy as np
 import alphashape
 from shapely.geometry import Polygon
 from shapely.wkt import dumps
-from shapely import to_geojson 
+from shapely import buffer, multipolygons, points, simplify, to_geojson 
 
 def fit_footprint(lon, lat, thinning_fac=100, alpha=0.05):
     """
@@ -104,6 +104,29 @@ def cowvr_footprint(lon, lat, thinning_fac=200, alpha=0.03):
     return alpha_shape
 
 
+def concave_footprint(lon, lat, thinning_fac=200, alpha=0.03):
+    """
+    First thins the lat/lon values by the given factor, then it creates a buffer around the
+    given line string represented by the lat/lon values. Returns a collection of Shapely
+    MultiPolygons.
+
+    lon, lon: list/array-like
+        Latitudes and longitudes.
+    thinning_fac: int
+        Factor to thin out data by (faster and returns a smaller polygon).
+    alpha: float
+        Used to buffer the lat/lon values by the given distance (in degrees)
+    """
+
+    lon = np.array(lon[::thinning_fac])
+    lat = np.array(lat[::thinning_fac])
+    xy = points(list(zip(lon, lat)))
+
+    buffered_xy = buffer(xy, alpha)
+
+    return multipolygons(buffered_xy)
+
+
 def generate_footprint(lon, lat, thinning_fac=30, alpha=0.035, is360=False, simplify=0.1, strategy=None):
     """
     Generates footprint by calling different footprint strategies
@@ -124,7 +147,8 @@ def generate_footprint(lon, lat, thinning_fac=30, alpha=0.035, is360=False, simp
 
     strategy_functions = {
         "scatsat": scatsat_footprint,
-        "cowvr": cowvr_footprint
+        "cowvr": cowvr_footprint,
+        "concave": concave_footprint
     }
     # Get the function corresponding to the strategy, or the default function
     selected_function = strategy_functions.get(strategy, fit_footprint)
@@ -133,13 +157,12 @@ def generate_footprint(lon, lat, thinning_fac=30, alpha=0.035, is360=False, simp
     if is360:
         lon_array = ((lon + 180) % 360.0) - 180
     # Call the selected function with the provided arguments
-    alpha_shape = selected_function(lon_array, lat, thinning_fac=thinning_fac, alpha=alpha)
-    alpha_shape = alpha_shape.simplify(simplify)
+    new_shape = selected_function(lon_array, lat, thinning_fac=thinning_fac, alpha=alpha)
 
     # If the polygon is not valid, attempt to fix self-intersections
-    if not alpha_shape.is_valid:
-        alpha_shape = alpha_shape.buffer(0)
+    if not new_shape.is_valid:
+        new_shape = new_shape.buffer(0)
 
-    geojson = to_geojson(alpha_shape)
-    wkt_alphashape = dumps(alpha_shape)
+    geojson = to_geojson(new_shape)
+    wkt_alphashape = dumps(new_shape)
     return wkt_alphashape, geojson
